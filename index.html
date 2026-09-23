@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -86,6 +86,12 @@ canvas{display:block;width:100%;max-width:100%}
 .wavewrap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center}
 .wavenum{align-items:flex-end;min-width:96px;padding-left:14px;border-left:1px solid var(--line)}
 .wavenum .u{font:400 11px/1 var(--f-mono);color:var(--muted)}
+/* bedside-monitor look: fixed black screen regardless of theme */
+.bedside{--mon:#ff6fb8;background:#000;border:1px solid #2a2a2a;border-radius:4px;padding:8px 10px 8px 4px;box-shadow:inset 0 0 24px rgba(255,111,184,.05)}
+.bedside .wavenum{border-left-color:#222;gap:6px}
+.bedside .k,.bedside .u{color:var(--mon);opacity:.75}
+.bedside .big{color:var(--mon);font-size:48px;letter-spacing:-.02em;text-shadow:0 0 8px rgba(255,111,184,.45)}
+.bedside .lim{font:400 10px/1.2 var(--f-mono);color:var(--mon);opacity:.55;text-align:right}
 .cv-vessel{height:120px}
 .cv-trace{height:230px}
 .cv-u{height:280px}
@@ -242,9 +248,9 @@ input[type=range]{width:100%;accent-color:var(--icp);min-width:0}
     </div>
     <div class="panel">
       <div class="ptitle"><span>ICP waveform · <span class="t" tabindex="0" data-tip="Percussion wave — arterial pulse">P1</span> <span class="t" tabindex="0" data-tip="Tidal wave — tracks brain compliance">P2</span> <span class="t" tabindex="0" data-tip="Dicrotic wave — aortic valve closure">P3</span></span><span id="p2p1"></span></div>
-      <div class="wavewrap">
+      <div class="wavewrap bedside">
         <canvas id="wave" class="cv-wave"></canvas>
-        <div class="ro wavenum"><span class="k">ICP</span><span class="big" style="color:var(--icp)" id="icpNum">—</span><span class="u">mmHg · 5-s mean</span></div>
+        <div class="ro wavenum"><span class="k">ICP</span><span class="big" id="icpNum">—</span><span class="u">mmHg</span><span class="lim">22<br>0</span></div>
       </div>
     </div>
     <div class="panel">
@@ -713,36 +719,52 @@ function drawPV(){
 /* ───────── ch1: ICP waveform ───────── */
 const g=(x,m,s)=>Math.exp(-((x-m)**2)/(2*s*s));
 // sweep display: 10-s window drawn left→right, overwriting the previous sweep behind an erase gap
-const WAVE={buf:[],N:0,last:-1,numT:-1e9};
+const WAVE={buf:[],N:0,last:-1,numT:-1e9,winT:-1e9,lo:0,hi:25};
+// auto-window every 3 s: fit the scale to the on-screen trace's min/max, snapped to 5 mmHg
+function waveWindow(){let mn=Infinity,mx=-Infinity;WAVE.buf.forEach(v=>{if(!isNaN(v)){mn=Math.min(mn,v);mx=Math.max(mx,v);}});
+  if(mn>mx)return;const pad=Math.max(1.5,(mx-mn)*0.15);WAVE.lo=Math.floor((mn-pad)/5)*5;WAVE.hi=Math.max(WAVE.lo+10,Math.ceil((mx+pad)/5)*5);}
 function drawWave(t){
   const {ctx,w,h}=fit($('#wave')), d=derive();
   const T=0.75, span=10, peak=Math.max(1,d.p2), k=d.amp/peak;
-  const lo=d.icp-4, hi=d.icp+18;
-  const A=axes(ctx,w,h,{x:[0,span],y:[lo,hi],yt:[Math.ceil(lo/5)*5,Math.ceil(lo/5)*5+10],m:{b:10,l:36}});
   const val=tt=>{const ph=((tt%T)+T)%T/T;return d.icp-d.amp*0.35+k*(1*g(ph,.14,.035)+d.p2*g(ph,.31,.05)+0.45*g(ph,.52,.05))+0.6*Math.sin(tt*2*Math.PI/4);};
-  const N=Math.max(2,Math.floor(A.x1-A.x0));
+  const N=Math.max(2,Math.floor(w-MON.l-MON.r));
   if(WAVE.N!==N){WAVE.N=N;WAVE.buf=new Array(N+1).fill(NaN);WAVE.last=-1;}
   const cur=Math.floor((t%span)/span*N);
-  if(WAVE.last<0){for(let c=0;c<N;c++)WAVE.buf[c]=val(t-((cur-c+N)%N)/N*span);WAVE.last=cur;}
+  if(WAVE.last<0){for(let c=0;c<N;c++)WAVE.buf[c]=val(t-((cur-c+N)%N)/N*span);WAVE.last=cur;waveWindow();}
   // fill columns written since last frame
   let n=WAVE.last<0?1:(cur-WAVE.last+N)%N; if(n>N/2)n=1;
   for(let j=n-1;j>=0;j--){
     const col=(cur-j+N)%N, tt=t-j/N*span;
     WAVE.buf[col]=val(tt);
   }
+  if(t-WAVE.winT>=3){WAVE.winT=t;waveWindow();}
   WAVE.last=cur;
+  const lo=WAVE.lo, hi=WAVE.hi, A=monAxes(ctx,w,h,lo,hi);
   // monitor-style numeric: mean of the last 5 s of trace, refreshed once a second
   if(t-WAVE.numT>=1){WAVE.numT=t;let sum=0,n5=Math.round(N*5/span);
     for(let j=0;j<n5;j++)sum+=WAVE.buf[(cur-j+N)%N];$('#icpNum').textContent=Math.round(sum/n5);}
   const gap=Math.round(N*0.3/span), inGap=c=>((c-cur+N)%N)>0&&((c-cur+N)%N)<=gap;
-  ctx.strokeStyle=COL.icp;ctx.lineWidth=2;ctx.beginPath();let pen=false;
+  ctx.save();ctx.strokeStyle=MON.trace;ctx.lineWidth=1.8;ctx.lineJoin='round';ctx.shadowColor=MON.trace;ctx.shadowBlur=6;
+  ctx.beginPath();let pen=false;
   for(let c=0;c<N;c++){const v=WAVE.buf[c];
     if(isNaN(v)||inGap(c)){pen=false;continue;}
     const x=A.x0+c,y=A.sy(clamp(v,lo,hi));pen?ctx.lineTo(x,y):ctx.moveTo(x,y);pen=true;
     if(c===cur){ctx.stroke();ctx.beginPath();pen=false;}}
-  ctx.stroke();
-  // sweep cursor
-  ctx.fillStyle=COL.icp;ctx.beginPath();ctx.arc(A.x0+cur,A.sy(clamp(WAVE.buf[cur],lo,hi)),3,0,7);ctx.fill();
+  ctx.stroke();ctx.restore();
+}
+// black-screen grid + scale, drawn in the monitor's own palette
+const MON={l:34,r:4,trace:'#ff6fb8',dim:'rgba(255,111,184,.55)',grid:'rgba(255,255,255,.09)'};
+function monAxes(ctx,w,h,lo,hi){
+  const x0=MON.l,x1=w-MON.r,y0=h-8,y1=8;
+  const sx=v=>x0+v*(x1-x0), sy=v=>y0-(v-lo)/(hi-lo)*(y0-y1);
+  ctx.fillStyle='#000';ctx.fillRect(0,0,w,h);
+  ctx.fillStyle=MON.grid;
+  for(let x=x0;x<=x1;x+=10)for(let y=y1;y<=y0;y+=10)ctx.fillRect(Math.round(x),Math.round(y),1,1);
+  ctx.font=MONO;ctx.textAlign='right';ctx.textBaseline='middle';
+  [lo,hi].forEach(v=>{const Y=Math.round(sy(v))+.5;
+    ctx.strokeStyle=MON.dim;ctx.lineWidth=1;ctx.setLineDash([2,4]);ctx.beginPath();ctx.moveTo(x0,Y);ctx.lineTo(x1,Y);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=MON.dim;ctx.fillText(v,x0-6,Y);});
+  return {sx,sy,x0,x1,y0,y1};
 }
 
 /* ───────── ch2: Lassen ───────── */
