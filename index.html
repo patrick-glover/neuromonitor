@@ -133,6 +133,16 @@ canvas{display:block;width:100%;max-width:100%}
 .labs dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
 .dbtake{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);max-width:70ch}
 .row.r-1-3{grid-template-columns:minmax(0,1fr) minmax(0,2.4fr)}
+.teach{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px 28px;align-items:start}
+.teach-copy{display:flex;flex-direction:column;gap:10px;font-size:15px}
+.teach-copy p{margin:0;max-width:62ch}
+.teach-copy p b{font-weight:600}
+.quad{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);gap:6px}
+.quad .ax{font:600 11px/1.2 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.quad .ax.col{text-align:center;padding-bottom:2px}
+.quad .ax.rowh{writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;padding-left:2px}
+.qc{min-height:96px;background:var(--panel2);border:1px solid var(--line);border-top:3px solid var(--c);border-radius:4px;padding:9px 10px;font-size:14px;line-height:1.4;color:var(--muted)}
+.qc b{display:block;font:700 13px/1.2 var(--f-display);letter-spacing:.05em;text-transform:uppercase;color:var(--c);margin-bottom:4px}
 .meters{display:grid;gap:16px}
 .meters.two{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 24px}
 .meter .mh{display:flex;align-items:baseline;gap:6px;margin-bottom:7px}
@@ -180,7 +190,7 @@ input[type=range]{width:100%;accent-color:var(--icp);min-width:0}
 @media (max-width:900px){
   .chapter{grid-template-columns:1fr;gap:22px}
   .copy{position:static}
-  .row.r-2-3,.row.r-1-3{grid-template-columns:1fr}
+  .row.r-2-3,.row.r-1-3,.teach{grid-template-columns:1fr}
   .monitor{grid-template-columns:1fr}
   .casecard{grid-template-columns:120px minmax(0,1fr)}
   .cv-ct{width:120px;height:120px}
@@ -423,6 +433,27 @@ input[type=range]{width:100%;accent-color:var(--icp);min-width:0}
       <div class="ro"><span class="k">CBF</span><span class="v" style="color:var(--cbf)" data-out="cbf"></span></div>
       <div class="ro"><span class="k"><span class="t" tabindex="0" data-tip="Arterial O₂ content = 1.34 × Hb × SaO₂ + 0.003 × PaO₂">CaO₂</span></span><span class="v" id="cao2"></span></div>
       <div class="ro"><span class="k">SaO₂</span><span class="v" id="sao2"></span></div>
+    </div>
+    <div class="panel">
+      <div class="ptitle"><span>How to read PbtO₂ and L/P</span></div>
+      <div class="teach">
+        <div class="teach-copy">
+          <p>Oxygen is the final electron sink for making ATP. Without it, cells dump electrons onto pyruvate to make lactate, which keeps glycolysis limping along. Lactate is electrons with nowhere to go.</p>
+          <p><b>PbtO₂</b> is the oxygen left over in tissue: delivery minus consumption. It is neither blood oxygen nor brain oxygen use. Normal is 20–35; act below 20, worry below 15, and below 10 is bad. When it's low, walk the chain: lungs, blood, pressure, vessels, demand, probe. Raising FiO₂ fixes the number, not the flow, so use it as a bridge. A normal value isn't automatically reassuring, because dead or failing tissue doesn't extract oxygen.</p>
+          <p><b>L/P</b> is the tissue's verdict on whether the cells are getting by. It's hourly and lags, so PbtO₂ is the alarm and L/P tells you whether the dip cost anything.</p>
+        </div>
+        <div class="quad" role="group" aria-label="PbtO₂ by L/P ratio">
+          <span></span>
+          <span class="ax col">L/P normal</span>
+          <span class="ax col">L/P high</span>
+          <span class="ax rowh">PbtO₂ normal</span>
+          <div class="qc" style="--c:var(--good)"><b>Reassuring</b>If the probe sits in at-risk tissue.</div>
+          <div class="qc" style="--c:var(--prx)"><b>Non-ischemic</b>Fuel problem if glucose is low; mitochondrial failure if pyruvate is normal or high.</div>
+          <span class="ax rowh">PbtO₂ low</span>
+          <div class="qc" style="--c:var(--warn)"><b>Compensating</b>Cells are coping. Fix delivery now.</div>
+          <div class="qc" style="--c:var(--bad)"><b>Ischemia</b>Low pyruvate. Urgent.</div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
